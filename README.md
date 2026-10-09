@@ -34,9 +34,12 @@ cp .env.example .env        # then set SAMGUARD_PASSWORD in .env
 ```bash
 poetry run pytest                  # headed (visible browser) by default, both tests (~1 min)
 poetry run pytest --slowmo 300     # slowed down - use this for the screen recording
-poetry run pytest -k tc25          # a single test
-poetry run pytest -m smoke        # by marker
+poetry run pytest -k tc25          # a single test, selected by name
+poetry run pytest -m smoke         # by marker (smoke, trend_test)
+poetry run pytest test_trend_view.py::TestTrendView::test_tc33_section_name_and_tags_persist_after_refresh
+poetry run pytest --browser firefox  # another browser (run `poetry run playwright install firefox` first)
 ```
+The default options (Chromium, `--headed`, video, screenshot and trace on failure, output folder `test-results/`) are set in `addopts` in `pyproject.toml`. pytest-playwright has no `--headless` flag: for a run without a window (e.g. CI) remove `--headed` from `addopts`.
 
 ## Video and debugging output
 - A **video of every test** is recorded automatically (`--video on` in `pyproject.toml`) to
@@ -56,17 +59,38 @@ poetry run pytest -m smoke        # by marker
 
 ## Project structure
 ```
-pages/base_page.py       BasePage: url, default timeout, open/reload, wait_until helper
-pages/locators.py        CSS locators grouped per page / component
-pages/login_page.py      LoginPage
-pages/trend_page.py      TrendPage, Section and TagPicker page objects + API wait helpers
-data.py                  tag pool, unique valid section names
-conftest.py              browser/context settings, credentials, login, editable_section (snapshot + restore)
-test_trend_view.py       TestTrendView: the two tests
-pyproject.toml           Poetry dependencies + pytest options (browser, video, trace, markers)
+samguard-trend-test/
+├── pages/
+│   ├── base_page.py     BasePage: url, default timeout, open/reload, wait_until helper
+│   ├── locators.py      CSS locators grouped per page / component
+│   ├── login_page.py    LoginPage
+│   └── trend_page.py    TrendPage, Section and TagPicker page objects + API wait helpers
+├── conftest.py          browser/context settings, credentials, login, editable_section (snapshot + restore)
+├── data.py              tag pool, unique valid section names
+├── test_trend_view.py   TestTrendView: the two tests
+├── pyproject.toml       Poetry dependencies + pytest options (browser, headed, video, trace, markers)
+├── poetry.lock          locked dependency versions
+├── .env.example         template for .env (credentials, base URL)
+└── README.md
 ```
+
+### How the code is organised
+- **Page Object pattern.** Every page or component is a class in `pages/`; all CSS selectors live in `pages/locators.py`, so a UI change means editing one place.
+- **No assertions in tests.** Tests only call actions and high-level checks of the page objects (`check_sections_count`, `check_section_is_saved`, `check_limit_error_is_shown`, ...). The `assert` / `expect` calls are inside those methods.
+- **Fixtures** (`conftest.py`): `trend_page` logs in and opens Dashboard → Trend; `editable_section` picks a section that can take a tag and restores it after the test.
+- **Markers**: `smoke` (both tests) and `trend_test` (everything in Trend View), declared in `pyproject.toml`.
+
+## Configuration (`.env`)
+| Variable | Default | Meaning |
+|---|---|---|
+| `SAMGUARD_PASSWORD` | – (required) | Password of the demo user. Without it the tests are skipped. |
+| `SAMGUARD_USER` | `demo@samguard.co` | Demo user name |
+| `BASE_URL` | `https://demo-3.client.samguard.co` | Application URL |
+
+`.env` is git-ignored; never commit the password.
+
 ## Known application issues (not covered by these tests)
 BUG-01 ("Add" creates an empty section without a popup), BUG-02 (last tag removable) and BUG-03 (name rules not enforced) are described in `../3_Bug_Reports.md`. `TrendPage.add_section()` currently relies on the BUG-01 behaviour. When the configuration popup is implemented, that helper has to fill in the popup.
 
 ## If a locator breaks
-The app has no `data-testid` attributes, so all locators are CSS classes of the Angular components, grouped at the top of each page-object class. Use `poetry run playwright codegen https://demo-3.client.samguard.co/admin-ui/#/login` to inspect the current DOM.
+The app has no `data-testid` attributes, so all locators are CSS classes of the Angular components, collected in `pages/locators.py`. Use `poetry run playwright codegen https://demo-3.client.samguard.co/admin-ui/#/login` to inspect the current DOM.
