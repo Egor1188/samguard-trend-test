@@ -1,0 +1,32 @@
+[project]
+name = "samguard-trend-test"
+version = "0.1.0"
+description = "Playwright tests for SAM GUARD Trend View"
+authors = [
+    {name = "Heorhii Mishcheriakov",email = "g.mechsheryakov@adv2.com"}
+]
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "pytest==8.4.2",
+    "pytest-playwright==0.7.1",
+    "playwright==1.56.0",
+    "python-dotenv==1.1.1",
+    "greenlet (>=3.3)",
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.pytest.ini_options]
+# Video of every test: test-results/<test-name>/video.webm
+# Trace of failed tests:  playwright show-trace test-results/<test-name>/trace.zip
+addopts = "--browser chromium --headed --video on --screenshot only-on-failure --tracing retain-on-failure --output test-results -v"
+markers = [
+    "smoke: high-value checks to run on every deployment",
+    "trend_test: tests of Dashboard -> Trend (Section & Tag Management)",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
